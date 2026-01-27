@@ -1,0 +1,11 @@
+webapp/node_modules/
+webapp/build/
+*_test.go
+**/*_test.go
+LICENSE
+*.md
+*.txt
+*.gif
+
+.vscode/
+.idea/
