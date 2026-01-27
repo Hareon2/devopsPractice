@@ -30,68 +30,51 @@ jobs:
       #       node:12.22-bullseye \
       #       bash -lc "npm ci && npm test -- --watch=false"
 
-  build:
-    name: Build & Push Docker
-    needs: test
-    runs-on: ubuntu-latest
+  # build:
+  #   name: Build & Push Docker
+  #   needs: test
+  #   runs-on: ubuntu-latest
 
-    steps:
-      - uses: actions/checkout@v4
+  #   steps:
+  #     - uses: actions/checkout@v4
 
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
+  #     - name: Set up Docker Buildx
+  #       uses: docker/setup-buildx-action@v3
 
-      - name: Login to Docker Hub
-        uses: docker/login-action@v2
-        with:
-          username: ${{ secrets.DOCKERHUB_USERNAME }}
-          password: ${{ secrets.DOCKERHUB_TOKEN }}
+  #     - name: Login to Docker Hub
+  #       uses: docker/login-action@v2
+  #       with:
+  #         username: ${{ secrets.DOCKERHUB_USERNAME }}
+  #         password: ${{ secrets.DOCKERHUB_TOKEN }}
 
-      - name: Build and push image
-        uses: docker/build-push-action@v4
-        with:
-          context: ./server
-          file: ./server/Dockerfile
-          push: true
-          tags: ${{ secrets.DOCKERHUB_USERNAME }}/skmz-frontend:latest
+  #     - name: Build and push image
+  #       uses: docker/build-push-action@v4
+  #       with:
+  #         context: ./server
+  #         file: ./server/Dockerfile
+  #         push: true
+  #         tags: ${{ secrets.DOCKERHUB_USERNAME }}/skmz-frontend:latest
 
-      - name: Build and push image
-        uses: docker/build-push-action@v4
-        with:
-          context: ./webapp
-          file: ./webapp/Dockerfile
-          push: true
-          tags: ${{ secrets.DOCKERHUB_USERNAME }}/skmz-frontend:latest
+  #     - name: Build and push image
+  #       uses: docker/build-push-action@v4
+  #       with:
+  #         context: ./webapp
+  #         file: ./webapp/Dockerfile
+  #         push: true
+  #         tags: ${{ secrets.DOCKERHUB_USERNAME }}/skmz-frontend:latest
           
 
 
   deploy:
     name: Deploy to Vagrant VM
-    needs: build
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, linux, x64, docker]
 
     steps:
-      - name: Setup SSH
-        uses: webfactory/ssh-agent@v0.7.0
-        with:
-          ssh-private-key: ${{ secrets.SERVER_SSH_KEY }}
+      - name: Checkout
+        uses: actions/checkout@v4
 
-      - name: Add known hosts
-        run: |
-          mkdir -p ~/.ssh
-          ssh-keyscan -H ${{ secrets.SERVER_HOST }} >> ~/.ssh/known_hosts
+      - name: Deploy (compose up)
+        run: docker compose -f docker-compose.yml up -d --build
 
-      - name: Deploy to Vagrant VM
-        run: |
-          ssh vagrant@${{ secrets.SERVER_HOST }} << 'EOF'
-            cd /home/vagrant/landing-main
-
-            docker pull ${{ secrets.DOCKERHUB_USERNAME }}/skmz-frontend:latest
-            docker pull ${{ secrets.DOCKERHUB_USERNAME }}/skmz-backend:latest
-            docker compose -f docker-compose.yml up -d --build
-            docker image prune -f
-
-            echo "Deployment done on VM!"
-          EOF
 
     
