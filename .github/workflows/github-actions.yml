@@ -58,9 +58,11 @@ jobs:
       - name: Build and push image
         uses: docker/build-push-action@v4
         with:
+          context: ./webapp
+          file: ./webapp/Dockerfile
           push: true
           tags: ${{ secrets.DOCKERHUB_USERNAME }}/skmz-frontend:latest
-          file: ./webapp/Dockerfile
+          
 
 
   deploy:
