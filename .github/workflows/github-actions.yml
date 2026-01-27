@@ -41,7 +41,7 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v3
         with:
-          node-version: "12.14-alpine"
+          node-version: "12.14"
       - name: Fix permissions for files
         run: |
           sudo chown -R $USER:$USER /home/vagrant/actions-runner/_work/devopsPractice/devopsPractice
