@@ -77,7 +77,7 @@ jobs:
           tags: ${{ secrets.DOCKERHUB_USERNAME }}/${{ secrets.DOCKERHUB_REPOSITORY_NAME }}:latest
           file: ./Dockerfile
 
-  # -------------------- DEPLOY ------------------------
+  # -------------------- DEPLOY --------------------------------
   deploy:
     name: Deploy to Vagrant VM
     needs: build
