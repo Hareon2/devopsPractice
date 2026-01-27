@@ -19,7 +19,7 @@ jobs:
             -v "$PWD/server":/app \
             -w /app \
             golang:1.19 \
-            bash -lc "go version && go mod download && go test -v ./..."
+            bash -c "echo \$PATH && which go && go version && go mod download && go test -v ./..."
 
       - name: Frontend tests (dockerized toolchain)
         run: |
