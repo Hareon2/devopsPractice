@@ -28,8 +28,6 @@ services:
 
   frontend:
     image: har3on:skmz-frontend:latest
-    args:
-      REACT_APP_API_URL: ""
     container_name: frontend
     restart: unless-stopped
     depends_on:
