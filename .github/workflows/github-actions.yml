@@ -18,8 +18,8 @@ jobs:
           docker run --rm \
             -v "$PWD/server":/app \
             -w /app \
-            golang:1.19-bullseye \
-            bash -lc "go mod download && go test -v ./..."
+            golang:1.19 \
+            bash -lc "go version && go mod download && go test -v ./..."
 
       - name: Frontend tests (dockerized toolchain)
         run: |
