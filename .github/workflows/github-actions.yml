@@ -30,23 +30,16 @@ jobs:
       #       node:12.22-bullseye \
       #       bash -lc "npm ci && npm test -- --watch=false"
 
-  build:
-    name: Build & Publish Docker Image
+   build:
+    name: Build & Push Docker
     needs: test
-    runs-on: self-hosted
+    runs-on: ubuntu-latest
 
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
 
-      - name: Setup Node.js
-        uses: actions/setup-node@v3
-        with:
-          node-version: "12.14"
-      - name: Fix permissions for files
-        run: |
-          sudo chown -R $USER:$USER /home/vagrant/actions-runner/_work/devopsPractice/devopsPractice
-          sudo chmod -R 755 /home/vagrant/actions-runner/_work/devopsPractice/devopsPractice
-          sudo chown -R $(whoami) /home/vagrant/actions-runner/_work/devopsPractice/devopsPractice/webapp    
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
 
       - name: Login to Docker Hub
         uses: docker/login-action@v2
@@ -60,32 +53,35 @@ jobs:
           push: true
           tags: ${{ secrets.DOCKERHUB_USERNAME }}/${{ secrets.DOCKERHUB_REPOSITORY_NAME }}:latest
           file: ./Dockerfile
+          build-args: |
+            FRONTEND_DIR=webapp
+            BACKEND_DIR=server
 
-  # -------------------- DEPLOY -----------------------------------
   deploy:
     name: Deploy to Vagrant VM
     needs: build
-    runs-on: self-hosted
+    runs-on: ubuntu-latest
 
     steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
       - name: Setup SSH
         uses: webfactory/ssh-agent@v0.7.0
         with:
           ssh-private-key: ${{ secrets.SERVER_SSH_KEY }}
 
-      - name: Add known hosts
+      - name: Add server to known_hosts
         run: |
           mkdir -p ~/.ssh
           ssh-keyscan -H ${{ secrets.SERVER_HOST }} >> ~/.ssh/known_hosts
 
-      - name: Deploy to Vagrant VM
+      - name: Deploy on Remote
         run: |
           ssh vagrant@${{ secrets.SERVER_HOST }} << 'EOF'
             cd /home/vagrant/skmz
-
             docker pull ${{ secrets.DOCKERHUB_USERNAME }}/${{ secrets.DOCKERHUB_REPOSITORY_NAME }}:latest
-            docker compose -f docker-compose.yml up -d --build
+            docker compose up -d --build
             docker image prune -f
-
-            echo "Deployment done on VM!"
+            echo "Deployment completed"
           EOF
