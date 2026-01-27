@@ -38,16 +38,15 @@ jobs:
     steps:
       - uses: actions/checkout@v3
 
-      - name: Fix permissions for files
-        run: |
-          sudo chown -R $USER:$USER /home/vagrant/actions-runner/_work/devopsPractice/devopsPractice
-          sudo chmod -R 755 /home/vagrant/actions-runner/_work/devopsPractice/devopsPractice
-
-
       - name: Setup Node.js
         uses: actions/setup-node@v3
         with:
           node-version: "18"
+      - name: Fix permissions for files
+        run: |
+          sudo chown -R $USER:$USER /home/vagrant/actions-runner/_work/devopsPractice/devopsPractice
+          sudo chmod -R 755 /home/vagrant/actions-runner/_work/devopsPractice/devopsPractice
+          sudo chown -R $(whoami) /home/vagrant/actions-runner/_work/devopsPractice/devopsPractice/webapp    
 
       - name: Install dependencies
         run: npm ci
