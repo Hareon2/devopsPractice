@@ -71,20 +71,27 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
       - name: Setup SSH
         uses: webfactory/ssh-agent@v0.7.0
         with:
           ssh-private-key: ${{ secrets.SERVER_SSH_KEY }}
 
-      - name: Deploy on Remote
+      - name: Add known hosts
+        run: |
+          mkdir -p ~/.ssh
+          ssh-keyscan -H ${{ secrets.SERVER_HOST }} >> ~/.ssh/known_hosts
+
+      - name: Deploy to Vagrant VM
         run: |
           ssh vagrant@${{ secrets.SERVER_HOST }} << 'EOF'
-            cd /home/vagrant/skmz
-            docker pull ${{ secrets.DOCKERHUB_USERNAME }}/${{ secrets.DOCKERHUB_REPOSITORY_NAME }}:latest
-            docker compose up -d --build
+            cd /home/vagrant/landing-main
+
+            docker pull ${{ secrets.DOCKERHUB_USERNAME }}/skmz-frontend:latest
+            docker pull ${{ secrets.DOCKERHUB_USERNAME }}/skmz-backend:latest
+            docker compose -f docker-compose.yml up -d --build
             docker image prune -f
-            echo "Deployment completed"
+
+            echo "Deployment done on VM!"
           EOF
+
+    
