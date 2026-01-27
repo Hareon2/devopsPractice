@@ -27,7 +27,7 @@ services:
       - "8080:8080"
 
   frontend:
-    image: har3on:skmz-frontend:latest
+    image: har3on/skmz-frontend
     container_name: frontend
     restart: unless-stopped
     depends_on:
