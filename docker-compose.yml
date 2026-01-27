@@ -15,9 +15,7 @@ services:
       retries: 10
 
   backend:
-    build:
-      context: ./server
-      dockerfile: Dockerfile
+    image: har3on:skmz-backend:latest
     container_name: backend
     restart: unless-stopped
     environment:
@@ -29,11 +27,9 @@ services:
       - "8080:8080"
 
   frontend:
-    build:
-      context: ./webapp
-      dockerfile: Dockerfile
-      args:
-        REACT_APP_API_URL: ""
+    image: har3on:skmz-frontend:latest
+    args:
+      REACT_APP_API_URL: ""
     container_name: frontend
     restart: unless-stopped
     depends_on:

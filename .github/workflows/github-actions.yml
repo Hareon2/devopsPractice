@@ -51,11 +51,16 @@ jobs:
         uses: docker/build-push-action@v4
         with:
           push: true
-          tags: ${{ secrets.DOCKERHUB_USERNAME }}/${{ secrets.DOCKERHUB_REPOSITORY_NAME }}:latest
-          file: ./Dockerfile
-          build-args: |
-            FRONTEND_DIR=webapp
-            BACKEND_DIR=server
+          tags: ${{ secrets.DOCKERHUB_USERNAME }}/skmz-frontend:latest
+          file: ./server/Dockerfile
+
+      - name: Build and push image
+        uses: docker/build-push-action@v4
+        with:
+          push: true
+          tags: ${{ secrets.DOCKERHUB_USERNAME }}/skmz-frontend:latest
+          file: ./webapp/Dockerfile
+
 
   deploy:
     name: Deploy to Vagrant VM
