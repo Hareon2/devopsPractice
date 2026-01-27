@@ -67,14 +67,14 @@ jobs:
 
   deploy:
     name: Deploy to Vagrant VM
-    runs-on: [self-hosted, linux, x64, docker]
+    runs-on: self-hosted
 
     steps:
       - name: Checkout
         uses: actions/checkout@v4
 
       - name: Deploy (compose up)
-        run: docker compose -f docker-compose.yml up -d --build
+        run: docker compose -f /home/vagrant/skmz/docker-compose.yml up -d --build
 
 
     
