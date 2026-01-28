@@ -9,7 +9,6 @@ on:
 jobs:
   build:
     name: Build & Push Docker
-    needs: test
     runs-on: ubuntu-latest
 
     steps:
