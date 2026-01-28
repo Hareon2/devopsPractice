@@ -25,6 +25,7 @@ jobs:
       - name: Go tests (dockerized toolchain)---
         run: |
           docker run --rm \
+            -u $(id -u):$(id -g) \
             -v "$PWD/server":/app \
             -w /app \
             golang:1.19 \
@@ -39,6 +40,7 @@ jobs:
       - name: Frontend tests (dockerized toolchain)
         run: |
           docker run --rm \
+            -u $(id -u):$(id -g) \
             -e CI=true \
             -v "$PWD/webapp":/app \
             -w /app \
