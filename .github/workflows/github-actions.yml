@@ -7,8 +7,48 @@ on:
   workflow_dispatch:
 
 jobs:
+  test:
+    name: Tests
+    runs-on: self-hosted
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      
+      - name: Cache Go modules
+        uses: actions/cache@v3
+        with:
+          path: |
+            ~/.cache/go-build
+            ~/go/pkg/mod
+          key: go-${{ hashFiles('**/go.sum') }}
+
+      - name: Go tests (dockerized toolchain)---
+        run: |
+          docker run --rm \
+            -v "$PWD/server":/app \
+            -w /app \
+            golang:1.19 \
+            bash -c "echo \$PATH && which go && go version && go mod download && go test -v ./..."
+
+      - name: Cache Node modules
+        uses: actions/cache@v3
+        with:
+          path: ~/.npm
+          key: node-${{ hashFiles('**/package-lock.json') }}
+
+      - name: Frontend tests (dockerized toolchain)
+        run: |
+          docker run --rm \
+            -e CI=true \
+            -v "$PWD/webapp":/app \
+            -w /app \
+            node:12.22-bullseye \
+            bash -lc "npm ci && npm test -- --watch=false"
+  
+  
   build:
     name: Build & Push Docker
+    needs: test
     runs-on: ubuntu-latest
 
     steps:
@@ -23,7 +63,7 @@ jobs:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
 
-      - name: Build and push image
+      - name: Build and push backend image
         uses: docker/build-push-action@v4
         with:
           context: ./server
@@ -31,7 +71,7 @@ jobs:
           push: true
           tags: ${{ secrets.DOCKERHUB_USERNAME }}/skmz-backend:latest
 
-      - name: Build and push image
+      - name: Build and push frontend image
         uses: docker/build-push-action@v4
         with:
           context: ./webapp
