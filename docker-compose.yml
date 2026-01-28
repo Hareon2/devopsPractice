@@ -15,7 +15,7 @@ services:
       retries: 10
 
   backend:
-    image: har3on:skmz-backend:latest
+    image: har3on/skmz-backend:latest
     container_name: backend
     restart: unless-stopped
     environment:
