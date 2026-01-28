@@ -80,7 +80,7 @@ jobs:
           tags: ${{ secrets.DOCKERHUB_USERNAME }}/skmz-frontend:latest
 
   deploy:
-    name: Deploy1 to Vagrant VM
+    name: Deploy122 to Vagrant VM
     needs: build
     runs-on: self-hosted
 
