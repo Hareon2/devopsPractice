@@ -15,7 +15,9 @@ services:
       retries: 10
 
   backend:
-    image: har3on/skmz-backend:latest
+    build:
+      context: ./server
+      dockerfile: Dockerfile
     container_name: backend
     restart: unless-stopped
     environment:
@@ -27,7 +29,9 @@ services:
       - "8080:8080"
 
   frontend:
-    image: har3on/skmz-frontend
+    build:
+      context: ./webapp
+      dockerfile: Dockerfile
     container_name: frontend
     restart: unless-stopped
     depends_on:

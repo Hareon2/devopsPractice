@@ -11,7 +11,7 @@ COPY package.json /app/package.json
 COPY package-lock.json /app/package-lock.json
 
 #npm install
-RUN npm ci
+RUN npm ci --quiet
 
 # Copy app source code to the working directory
 COPY . /app
@@ -24,7 +24,7 @@ ENV REACT_APP_API_URL=$REACT_APP_API_URL
 RUN npm run build
 
 # 2. For Nginx setup
-FROM nginx:alpine
+FROM nginx:1.28.1-alpine
 
 # Copy config nginx
 COPY --from=build /app/.nginx/nginx.conf /etc/nginx/conf.d/default.conf
