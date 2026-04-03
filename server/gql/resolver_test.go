@@ -4,13 +4,10 @@ import (
 	"context"
 	"errors"
 	"github.com/shpota/skmz/model"
-	"go.mongodb.org/mongo-driver/mongo"
 	"testing"
 )
 
-type MockDB struct {
-	collection *mongo.Collection
-}
+type MockDB struct{}
 
 func (mockDB MockDB) GetProgrammers(string) ([]*model.Programmer, error) {
 	return []*model.Programmer{{ID: "test-id"}}, errors.New("test-error")
