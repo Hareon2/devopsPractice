@@ -40,13 +40,13 @@ func (db MongoDB) GetProgrammers(skill string) ([]*model.Programmer, error) {
 
 func (db MongoDB) filter(skill string) bson.D {
 	return bson.D{{
-		"skills.name",
-		bson.D{{
-			"$regex",
-			"^" + skill + ".*$",
+		Key: "skills.name",
+		Value: bson.D{{
+			Key:   "$regex",
+			Value: "^" + skill + ".*$",
 		}, {
-			"$options",
-			"i",
+			Key:   "$options",
+			Value: "i",
 		}},
 	}}
 }

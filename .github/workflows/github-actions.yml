@@ -29,8 +29,9 @@ concurrency:
 env:
   GO_VERSION: "1.19"
   NODE_VERSION: "12"
-  BACKEND_IMAGE: ${{ secrets.DOCKERHUB_USERNAME }}/skmz-backend
-  FRONTEND_IMAGE: ${{ secrets.DOCKERHUB_USERNAME }}/skmz-frontend
+  BACKEND_IMAGE: ${{ secrets.DOCKERHUB_USERNAME }}/backend
+  FRONTEND_IMAGE: ${{ secrets.DOCKERHUB_USERNAME }}/frontend
+  APP_VERSION: "v1.0.0"
 
 # ═══════════════════════════════════════════════════════════════════════════════
 # STAGE 1 — LINT & STATIC ANALYSIS
@@ -189,16 +190,11 @@ jobs:
       - name: Generate image tags
         id: tags
         run: |
-          SHORT_SHA="${GITHUB_SHA::7}"
-          CALVER="$(date -u +'%Y.%m.%d')-${{ github.run_number }}"
-          echo "short_sha=${SHORT_SHA}" >> "$GITHUB_OUTPUT"
-          echo "calver=${CALVER}"       >> "$GITHUB_OUTPUT"
           echo "### 🏷️ Image Tags" >> "$GITHUB_STEP_SUMMARY"
           echo "| Tag | Value |"    >> "$GITHUB_STEP_SUMMARY"
           echo "|-----|-------|"    >> "$GITHUB_STEP_SUMMARY"
           echo "| latest | latest |" >> "$GITHUB_STEP_SUMMARY"
-          echo "| SHA | sha-${SHORT_SHA} |" >> "$GITHUB_STEP_SUMMARY"
-          echo "| CalVer | ${CALVER} |" >> "$GITHUB_STEP_SUMMARY"
+          echo "| Version | ${{ env.APP_VERSION }} |" >> "$GITHUB_STEP_SUMMARY"
 
       # ── Backend Image ───────────────────────────────────────────────────
       - name: Build & push backend
@@ -209,8 +205,7 @@ jobs:
           push: true
           tags: |
             ${{ env.BACKEND_IMAGE }}:latest
-            ${{ env.BACKEND_IMAGE }}:sha-${{ steps.tags.outputs.short_sha }}
-            ${{ env.BACKEND_IMAGE }}:${{ steps.tags.outputs.calver }}
+            ${{ env.BACKEND_IMAGE }}:${{ env.APP_VERSION }}
           cache-from: type=gha,scope=backend
           cache-to: type=gha,mode=max,scope=backend
 
@@ -223,8 +218,7 @@ jobs:
           push: true
           tags: |
             ${{ env.FRONTEND_IMAGE }}:latest
-            ${{ env.FRONTEND_IMAGE }}:sha-${{ steps.tags.outputs.short_sha }}
-            ${{ env.FRONTEND_IMAGE }}:${{ steps.tags.outputs.calver }}
+            ${{ env.FRONTEND_IMAGE }}:${{ env.APP_VERSION }}
           cache-from: type=gha,scope=frontend
           cache-to: type=gha,mode=max,scope=frontend
 
@@ -242,9 +236,9 @@ jobs:
       matrix:
         image:
           - name: backend
-            ref: skmz-backend
+            ref: backend
           - name: frontend
-            ref: skmz-frontend
+            ref: frontend
 
     steps:
       - name: Run Trivy vulnerability scanner — ${{ matrix.image.name }}

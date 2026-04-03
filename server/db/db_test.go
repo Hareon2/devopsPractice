@@ -12,13 +12,13 @@ func TestFilter(t *testing.T) {
 	got := mongoDB.filter("test")
 
 	want := bson.D{{
-		"skills.name",
-		bson.D{{
-			"$regex",
-			"^test.*$",
+		Key: "skills.name",
+		Value: bson.D{{
+			Key:   "$regex",
+			Value: "^test.*$",
 		}, {
-			"$options",
-			"i",
+			Key:   "$options",
+			Value: "i",
 		}},
 	}}
 	if !reflect.DeepEqual(got, want) {
