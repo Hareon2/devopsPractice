@@ -184,7 +184,7 @@ jobs:
         uses: docker/login-action@v3
         with:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
-          password: ${{ secrets.DOCKERHUB_TOKEN }}
+          password: ${{ secrets.DOCKERHUB_TOKEN}}
 
       # Generate deterministic, traceable tags
       - name: Generate image tags
@@ -242,7 +242,7 @@ jobs:
 
     steps:
       - name: Run Trivy vulnerability scanner — ${{ matrix.image.name }}
-        uses: aquasecurity/trivy-action@0.28.0
+        uses: aquasecurity/trivy-action@v0.35.0
         with:
           image-ref: ${{ secrets.DOCKERHUB_USERNAME }}/${{ matrix.image.ref }}:latest
           format: table
@@ -251,7 +251,7 @@ jobs:
           ignore-unfixed: true
 
       - name: Trivy SARIF output — ${{ matrix.image.name }}
-        uses: aquasecurity/trivy-action@0.28.0
+        uses: aquasecurity/trivy-action@v0.35.0
         with:
           image-ref: ${{ secrets.DOCKERHUB_USERNAME }}/${{ matrix.image.ref }}:latest
           format: sarif
