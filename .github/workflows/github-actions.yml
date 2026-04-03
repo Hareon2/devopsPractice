@@ -39,7 +39,7 @@ env:
 jobs:
   lint:
     name: "🔍 Lint & Static Analysis"
-    # Pin to 22.04 — Node 12 and Go 1.19 need compatible glibc
+    # Pin to 22.04 — Node 12 and Go 1.19 need compatible glibcadsf
     runs-on: ubuntu-22.04
     steps:
       - name: Checkout code
