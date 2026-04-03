@@ -31,7 +31,7 @@ env:
   NODE_VERSION: "12"
   BACKEND_IMAGE: ${{ secrets.DOCKERHUB_USERNAME }}/backend
   FRONTEND_IMAGE: ${{ secrets.DOCKERHUB_USERNAME }}/frontend
-  APP_VERSION: "v1.0.0"
+  APP_VERSION: "v1.0.${{ github.run_number }}"
 
 # ═══════════════════════════════════════════════════════════════════════════════
 # STAGE 1 — LINT & STATIC ANALYSIS

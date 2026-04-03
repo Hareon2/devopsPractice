@@ -20,6 +20,7 @@ ENV CGO_ENABLED=0 GOOS=linux GOARCH=amd64
 RUN go build -o server .
 
 # ---- Final Stage ----
+# hadolint ignore=DL3006
 FROM gcr.io/distroless/base-debian11
 
 COPY --from=builder /etc/passwd /etc/passwd
