@@ -1,97 +1,273 @@
-name: CI/CD (self-hosted)
+###############################################################################
+# CI Pipeline — skmz (Go + React + MongoDB)
+#
+# Stages:
+#   1. lint          — Static analysis, Dockerfile linting
+#   2. test-backend  — Go unit tests with race detector + coverage
+#   2. test-frontend — React/Jest unit tests + coverage
+#   3. build-and-push — Docker Buildx multi-tag build, push to Docker Hub
+#   4. security-scan — Trivy CVE scan on published images
+###############################################################################
+
+name: CI/CD Pipeline
 
 on:
   pull_request:
+    branches: [master, main]
   push:
-    branches: [master]
+    branches: [master, main]
   workflow_dispatch:
 
+# Cancel in-progress runs for the same branch/PR (save runner minutes)
+concurrency:
+  group: ${{ github.workflow }}-${{ github.head_ref || github.ref }}
+  cancel-in-progress: true
+
+# ---------------------------------------------------------------------------
+# Shared environment
+# ---------------------------------------------------------------------------
+env:
+  GO_VERSION: "1.19"
+  NODE_VERSION: "12"
+  BACKEND_IMAGE: ${{ secrets.DOCKERHUB_USERNAME }}/skmz-backend
+  FRONTEND_IMAGE: ${{ secrets.DOCKERHUB_USERNAME }}/skmz-frontend
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# STAGE 1 — LINT & STATIC ANALYSIS
+# ═══════════════════════════════════════════════════════════════════════════════
 jobs:
-  test:
-    name: Tests
-    runs-on: self-hosted
+  lint:
+    name: "🔍 Lint & Static Analysis"
+    # Pin to 22.04 — Node 12 and Go 1.19 need compatible glibc
+    runs-on: ubuntu-22.04
     steps:
-      - name: Checkout
+      - name: Checkout code
         uses: actions/checkout@v4
-      
-      - name: Cache Go modules
-        uses: actions/cache@v3
+
+      # ── Go Lint ──────────────────────────────────────────────────────────
+      - name: Setup Go ${{ env.GO_VERSION }}
+        uses: actions/setup-go@v5
         with:
-          path: |
-            ~/.cache/go-build
-            ~/go/pkg/mod
-          key: go-${{ hashFiles('**/go.sum') }}
+          go-version: ${{ env.GO_VERSION }}
+          cache-dependency-path: server/go.sum
 
-      - name: Go tests (dockerized toolchain)---
-        run: |
-          docker run --rm \
-          
-            -v "$PWD/server":/app \
-            -w /app \
-            golang:1.19 \
-            bash -c "echo \$PATH && which go && go version && go mod download && go test -v ./..."
+      - name: Go vet
+        working-directory: server
+        run: go vet ./...
 
-      - name: Cache Node modules
-        uses: actions/cache@v3
+      - name: Install staticcheck
+        run: go install honnef.co/go/tools/cmd/staticcheck@2022.1.3
+
+      - name: Run staticcheck
+        working-directory: server
+        run: staticcheck ./...
+
+      # ── Dockerfile Lint ──────────────────────────────────────────────────
+      - name: Lint server Dockerfile
+        uses: hadolint/hadolint-action@v3.1.0
         with:
-          path: ~/.npm
-          key: node-${{ hashFiles('**/package-lock.json') }}
+          dockerfile: server/Dockerfile
+          failure-threshold: warning
 
-      - name: Frontend tests (dockerized toolchain)
-        run: |
-          docker run --rm \
-            -u $(id -u):$(id -g) \
-            -e CI=true \
-            -v "$PWD/webapp":/app \
-            -w /app \
-            node:12.22-bullseye \
-            bash -lc "npm ci && npm test -- --watch=false"
-  
-  
-  build:
-    name: Build & Push Docker
-    needs: test
-    runs-on: ubuntu-latest
+      - name: Lint webapp Dockerfile
+        uses: hadolint/hadolint-action@v3.1.0
+        with:
+          dockerfile: webapp/Dockerfile
+          failure-threshold: warning
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# STAGE 2 — TESTS
+# ═══════════════════════════════════════════════════════════════════════════════
+
+  test-backend:
+    name: "🧪 Backend Tests (Go)"
+    needs: lint
+    # Pin to 22.04 — Go 1.19 needs compatible glibc
+    runs-on: ubuntu-22.04
 
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Go ${{ env.GO_VERSION }}
+        uses: actions/setup-go@v5
+        with:
+          go-version: ${{ env.GO_VERSION }}
+          cache-dependency-path: server/go.sum
+
+      - name: Download dependencies
+        working-directory: server
+        run: go mod download
+
+      - name: Run unit tests
+        working-directory: server
+        run: |
+          go test \
+            -v \
+            -race \
+            -coverprofile=coverage.out \
+            -covermode=atomic \
+            -coverpkg=.,./db,./cors,./gql \
+            ./...
+
+      - name: Display coverage summary
+        working-directory: server
+        run: go tool cover -func=coverage.out
+
+      - name: Upload coverage artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: backend-coverage
+          path: server/coverage.out
+          retention-days: 14
+
+  # ─────────────────────────────────────────────────────────────────────────
+
+  test-frontend:
+    name: "🧪 Frontend Tests (React)"
+    needs: lint
+    # Pin to 22.04 — Node 12 binaries require glibc <= 2.35
+    runs-on: ubuntu-22.04
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js ${{ env.NODE_VERSION }}
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+          cache-dependency-path: webapp/package-lock.json
+
+      - name: Install dependencies
+        working-directory: webapp
+        run: npm ci
+
+      - name: Run unit tests
+        working-directory: webapp
+        env:
+          CI: "true"
+        run: npm test -- --watchAll=false --coverage --forceExit
+
+      - name: Upload coverage artifact
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: frontend-coverage
+          path: webapp/coverage/
+          retention-days: 14
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# STAGE 3 — BUILD & PUSH DOCKER IMAGES
+# ═══════════════════════════════════════════════════════════════════════════════
+
+  build-and-push:
+    name: "🐳 Build & Push Docker"
+    needs: [test-backend, test-frontend]
+    runs-on: ubuntu-latest
+    # Push images only from the default branch — PRs only build (no push)
+    if: github.ref == 'refs/heads/master' || github.ref == 'refs/heads/main'
+
+    permissions:
+      contents: read
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 
       - name: Login to Docker Hub
-        uses: docker/login-action@v2
+        uses: docker/login-action@v3
         with:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
 
-      - name: Build and push backend image
-        uses: docker/build-push-action@v4
+      # Generate deterministic, traceable tags
+      - name: Generate image tags
+        id: tags
+        run: |
+          SHORT_SHA="${GITHUB_SHA::7}"
+          CALVER="$(date -u +'%Y.%m.%d')-${{ github.run_number }}"
+          echo "short_sha=${SHORT_SHA}" >> "$GITHUB_OUTPUT"
+          echo "calver=${CALVER}"       >> "$GITHUB_OUTPUT"
+          echo "### 🏷️ Image Tags" >> "$GITHUB_STEP_SUMMARY"
+          echo "| Tag | Value |"    >> "$GITHUB_STEP_SUMMARY"
+          echo "|-----|-------|"    >> "$GITHUB_STEP_SUMMARY"
+          echo "| latest | latest |" >> "$GITHUB_STEP_SUMMARY"
+          echo "| SHA | sha-${SHORT_SHA} |" >> "$GITHUB_STEP_SUMMARY"
+          echo "| CalVer | ${CALVER} |" >> "$GITHUB_STEP_SUMMARY"
+
+      # ── Backend Image ───────────────────────────────────────────────────
+      - name: Build & push backend
+        uses: docker/build-push-action@v5
         with:
           context: ./server
           file: ./server/Dockerfile
           push: true
-          tags: ${{ secrets.DOCKERHUB_USERNAME }}/skmz-backend:latest
+          tags: |
+            ${{ env.BACKEND_IMAGE }}:latest
+            ${{ env.BACKEND_IMAGE }}:sha-${{ steps.tags.outputs.short_sha }}
+            ${{ env.BACKEND_IMAGE }}:${{ steps.tags.outputs.calver }}
+          cache-from: type=gha,scope=backend
+          cache-to: type=gha,mode=max,scope=backend
 
-      - name: Build and push frontend image
-        uses: docker/build-push-action@v4
+      # ── Frontend Image ──────────────────────────────────────────────────
+      - name: Build & push frontend
+        uses: docker/build-push-action@v5
         with:
           context: ./webapp
           file: ./webapp/Dockerfile
           push: true
-          tags: ${{ secrets.DOCKERHUB_USERNAME }}/skmz-frontend:latest
+          tags: |
+            ${{ env.FRONTEND_IMAGE }}:latest
+            ${{ env.FRONTEND_IMAGE }}:sha-${{ steps.tags.outputs.short_sha }}
+            ${{ env.FRONTEND_IMAGE }}:${{ steps.tags.outputs.calver }}
+          cache-from: type=gha,scope=frontend
+          cache-to: type=gha,mode=max,scope=frontend
 
-  deploy:
-    name: Deploy to Vagrant VM
-    needs: build
-    runs-on: self-hosted
+# ═══════════════════════════════════════════════════════════════════════════════
+# STAGE 4 — SECURITY SCAN
+# ═══════════════════════════════════════════════════════════════════════════════
+
+  security-scan:
+    name: "🛡️ Security Scan (Trivy)"
+    needs: build-and-push
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/master' || github.ref == 'refs/heads/main'
+
+    strategy:
+      matrix:
+        image:
+          - name: backend
+            ref: skmz-backend
+          - name: frontend
+            ref: skmz-frontend
 
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
+      - name: Run Trivy vulnerability scanner — ${{ matrix.image.name }}
+        uses: aquasecurity/trivy-action@0.28.0
+        with:
+          image-ref: ${{ secrets.DOCKERHUB_USERNAME }}/${{ matrix.image.ref }}:latest
+          format: table
+          exit-code: 0          # Don't fail the pipeline — report only
+          severity: CRITICAL,HIGH
+          ignore-unfixed: true
 
-      - name: Deploy (compose up)
-        run: docker compose -f /home/vagrant/skmz/docker-compose.yml up -d --build
+      - name: Trivy SARIF output — ${{ matrix.image.name }}
+        uses: aquasecurity/trivy-action@0.28.0
+        with:
+          image-ref: ${{ secrets.DOCKERHUB_USERNAME }}/${{ matrix.image.ref }}:latest
+          format: sarif
+          output: trivy-${{ matrix.image.name }}.sarif
+          severity: CRITICAL,HIGH
+          ignore-unfixed: true
 
-
-    
+      - name: Upload SARIF
+        uses: github/codeql-action/upload-sarif@v3
+        if: always()
+        continue-on-error: true    # Graceful fail if GitHub Security is not enabled
+        with:
+          sarif_file: trivy-${{ matrix.image.name }}.sarif
